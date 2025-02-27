@@ -18,7 +18,7 @@ function createWindow() {
     });
 
     // Cargar la página de WhatsApp Web
-    mainWindow.loadURL('https://chat.openai.com');
+    mainWindow.loadURL('https://claude.ai/new');
 
     // Ocultar el menú principal
     mainWindow.setMenu(null);

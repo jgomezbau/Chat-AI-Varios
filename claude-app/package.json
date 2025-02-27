@@ -1,7 +1,7 @@
 {
-    "name": "chatgpt-app",
+    "name": "claude-app",
     "version": "1.0.0",
-    "description": "Aplicación de escritorio para ChatGPT",
+    "description": "Aplicación de escritorio para Claude",
     "author": "Juan Bau <jgomezbau@gmail.com>",
     "main": "main.js",
     "scripts": {
@@ -9,8 +9,8 @@
       "build": "electron-builder"
     },
     "build": {
-      "appId": "chatgpt-app",
-      "productName": "ChatGPT App",
+      "appId": "claude-app",
+      "productName": "Claude App",
       "directories": {
         "output": "dist"
       },

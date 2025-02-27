@@ -1,4 +1,4 @@
-# ChatGPT Desktop App
+# Claude Desktop App
 
 **Versión 1.0.0**
 
@@ -31,7 +31,7 @@ Antes de comenzar, asegúrate de tener lo siguiente instalado:
 1. **Clonar el repositorio**:
 
    ```bash
-   git clone https://github.com/jgomezbau/chatgpt-app.git
+   git clone https://github.com/jgomezbau/claude-app.git
 
 # Uso
 **Menú contextual**: 
