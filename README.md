@@ -1,5 +1,6 @@
 # AI Desktop Apps
 # Chat-AI-Varios
+# Es una idea que tengo que mejorar mucho todavia, esto es paa salir del paso.
 
 **Versión 1.0.0**
 
