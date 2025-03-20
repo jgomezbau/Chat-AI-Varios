@@ -27,7 +27,10 @@ Cada uno de estos proyectos funciona de manera similar, pero conecta con una IA 
 - **Electron**: Framework para crear aplicaciones de escritorio utilizando tecnologías web.
 - **Node.js**: Entorno de ejecución
 
-## com compilo y que ejecuto (Dentro de la carpeta de la aplicacion)
+## Clona este repositorio:
+   git clone https://github.com/jgomezbau/Chat-AI-Varios.git
+
+## como compilo y que ejecuto (Dentro de la carpeta de la aplicacion)
     - npm install
     - npm run build
     
