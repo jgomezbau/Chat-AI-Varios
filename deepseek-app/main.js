@@ -15,7 +15,7 @@ function createWindow() {
         icon: path.join(__dirname, 'icons', 'icon.png') // Ruta del ícono
     });
 
-    // Cargar la página de ChatGPT
+    // Cargar la página de DeepSeek
     mainWindow.loadURL('https://chat.deepseek.com/');
 
     // Ocultar el menú principal

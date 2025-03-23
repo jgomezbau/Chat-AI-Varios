@@ -2,7 +2,7 @@
 
 **Versión 1.0.0**
 
-Esta es una aplicación de escritorio desarrollada utilizando **Electron**, que permite a los usuarios interactuar con **DeepSeek** de manera independiente del navegador. El objetivo de este proyecto es proporcionar una experiencia de usuario más fluida y accesible para aquellos que prefieren tener ChatGPT en su escritorio sin depender de un navegador web.
+Esta es una aplicación de escritorio desarrollada utilizando **Electron**, que permite a los usuarios interactuar con **DeepSeek** de manera independiente del navegador. El objetivo de este proyecto es proporcionar una experiencia de usuario más fluida y accesible para aquellos que prefieren tener DeepSeek en su escritorio sin depender de un navegador web.
 
 ## Características
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, session } = require('electron');
 const path = require('path');
 
 let mainWindow;
@@ -10,16 +10,29 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            devTools: true // Habilita DevTools (opcional)
+            devTools: true, // Habilita DevTools (opcional)
+            // Habilitar permisos para cámara y micrófono
+            permissions: ['media'],
         },
         icon: path.join(__dirname, 'icons', 'icon.png') // Ruta del ícono
     });
 
-    // Cargar la página de Qwen
-    mainWindow.loadURL('https://chat.qwenlm.ai/');
+    // Cargar la página de WhatsApp Web
+    mainWindow.loadURL('https://grok.com/');
 
     // Ocultar el menú principal
     mainWindow.setMenu(null);
+
+    // Manejar solicitudes de permisos para cámara y micrófono
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        const allowedPermissions = ['media']; // Permisos permitidos
+
+        if (allowedPermissions.includes(permission)) {
+            callback(true); // Permitir el acceso
+        } else {
+            callback(false); // Denegar el acceso
+        }
+    });
 
     // Crear un menú contextual completo
     const contextMenuTemplate = [
