@@ -1,7 +1,22 @@
-const { app, BrowserWindow, Menu, session } = require('electron');
+const { app, BrowserWindow, Menu, session, shell, dialog, clipboard } = require('electron');
+app.disableHardwareAcceleration();
 const path = require('path');
 
 let mainWindow;
+
+function isAllowed(url, allowedPatterns) {
+    try {
+        const hostname = new URL(url).hostname;
+        return allowedPatterns.some(pattern => {
+            if (pattern instanceof RegExp) {
+                return pattern.test(hostname);
+            }
+            return url.includes(pattern);
+        });
+    } catch (err) {
+        return false;
+    }
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -10,109 +25,68 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            devTools: true, // Habilita DevTools (opcional)
-            // Habilitar permisos para cámara y micrófono
+            devTools: true,
             permissions: ['media'],
         },
-        icon: path.join(__dirname, 'icons', 'icon.png') // Ruta del ícono
+        icon: path.join(__dirname, 'icons', 'icon.png')
     });
 
-    // Cargar la página de WhatsApp Web
-    mainWindow.loadURL('https://chat.openai.com');
+    const allowedDomains = ['openai.com'];
+    
+    const allowedLoginDomains = [/openai\.com$/, 'chatgpt.com', 'accounts.google.com', 'login.live.com','appleid.apple.com'];
 
-    // Ocultar el menú principal
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        const hostname = new URL(url).hostname;
+        if (allowedLoginDomains.some(domain => domain instanceof RegExp ? domain.test(hostname) : hostname.includes(domain))) {
+            mainWindow.loadURL(url);
+        } else {
+            shell.openExternal(url);
+        }
+        return { action: 'deny' };
+    });
+
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+        const hostname = new URL(url).hostname;
+        if (!allowedLoginDomains.some(domain => domain instanceof RegExp ? domain.test(hostname) : hostname.includes(domain))) {
+            event.preventDefault();
+            shell.openExternal(url);
+        }
+    });
+    
+    mainWindow.loadURL('https://chat.openai.com');
     mainWindow.setMenu(null);
 
-    // Manejar solicitudes de permisos para cámara y micrófono
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-        const allowedPermissions = ['media']; // Permisos permitidos
-
-        if (allowedPermissions.includes(permission)) {
-            callback(true); // Permitir el acceso
-        } else {
-            callback(false); // Denegar el acceso
-        }
+        const allowedPermissions = ['media'];
+        callback(allowedPermissions.includes(permission));
     });
 
-    // Crear un menú contextual completo
+    // Actualizar menú contextual para incluir "Inspeccionar"
     const contextMenuTemplate = [
-        {
-            label: 'Cortar',
-            role: 'cut',
-            enabled: false // Deshabilitado por defecto, se habilitará si hay texto seleccionado
-        },
-        {
-            label: 'Copiar',
-            role: 'copy',
-            enabled: false // Deshabilitado por defecto, se habilitará si hay texto seleccionado
-        },
-        {
-            label: 'Pegar',
-            role: 'paste'
-        },
-        {
-            label: 'Seleccionar todo',
-            role: 'selectAll'
-        },
-        { type: 'separator' }, // Separador
-        {
-            label: 'Recargar',
-            click: () => {
-                mainWindow.reload(); // Recargar la página
-            }
-        },
-        {
-            label: 'Imprimir',
-            click: () => {
-                mainWindow.webContents.print(); // Abrir el diálogo de impresión
-            }
-        },
-        {
-            label: 'Inspeccionar',
-            click: (_, params) => {
-                mainWindow.webContents.inspectElement(params.x, params.y); // Abrir DevTools en la posición del clic
-            }
-        }
+        { label: 'Cortar', role: 'cut', enabled: false },
+        { label: 'Copiar', role: 'copy', enabled: false },
+        { label: 'Pegar', role: 'paste' },
+        { label: 'Seleccionar todo', role: 'selectAll' },
+        { type: 'separator' },
+        { label: 'Recargar', click: () => { mainWindow.reload(); } },
+        { label: 'Imprimir', click: () => { mainWindow.webContents.print(); } },
+        { label: 'Inspeccionar', click: (_, params) => { mainWindow.webContents.inspectElement(params.x, params.y); } }
     ];
 
-    // Habilitar el menú contextual personalizado
+    // Agregar listener para el clic derecho (context-menu)
     mainWindow.webContents.on('context-menu', (event, params) => {
-        const { isEditable, selectionText } = params;
-
-        // Habilitar/deshabilitar opciones según el contexto
-        contextMenuTemplate[0].enabled = isEditable; // Cortar
-        contextMenuTemplate[1].enabled = selectionText.trim() !== ''; // Copiar
-        contextMenuTemplate[2].enabled = isEditable; // Pegar
-
-        // Construir y mostrar el menú contextual
+        // Actualizar estado de opciones si fuera necesario
+        contextMenuTemplate[0].enabled = params.isEditable;
+        contextMenuTemplate[1].enabled = params.selectionText.trim() !== '';
+        contextMenuTemplate[2].enabled = params.isEditable;
         const menu = Menu.buildFromTemplate(contextMenuTemplate);
         menu.popup();
     });
-
-    // Inyectar un script para eliminar el bloqueo del menú contextual
-    mainWindow.webContents.on('did-finish-load', () => {
-        mainWindow.webContents.executeJavaScript(`
-            document.addEventListener('contextmenu', (event) => {
-                event.stopPropagation(); // Evitar que el sitio web bloquee el menú contextual
-            }, true);
-        `);
-    });
-
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
 }
 
 app.on('ready', createWindow);
-
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
-});
-
-app.on('activate', () => {
-    if (mainWindow === null) {
-        createWindow();
-    }
-});
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('activate', () => { if (mainWindow === null) createWindow(); });
