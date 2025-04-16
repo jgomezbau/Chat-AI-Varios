@@ -5,26 +5,29 @@
     "author": "Juan Bau <jgomezbau@gmail.com>",
     "main": "main.js",
     "scripts": {
-      "start": "electron .",
-      "build": "electron-builder"
+        "start": "electron .",
+        "build": "electron-builder"
     },
     "build": {
-      "appId": "deepseek-app",
-      "productName": "DeepSeek App",
-      "directories": {
-        "output": "dist"
-      },
-      "files": [
-        "**/*",
-        "!node_modules/electron/**/*"
-      ],
-      "linux": {
-        "target": ["AppImage", "tar.gz"],
-        "icon": "icons/icon.png"
-      }
+        "appId": "deepseek-app",
+        "productName": "DeepSeek App",
+        "directories": {
+            "output": "dist"
+        },
+        "files": [
+            "**/*",
+            "!node_modules/electron/**/*"
+        ],
+        "linux": {
+            "target": [
+                "AppImage",
+                "tar.gz"
+            ],
+            "icon": "icons/icon.png"
+        }
     },
     "devDependencies": {
-      "electron": "^28.0.0",
-      "electron-builder": "^23.0.0"
+        "electron": "^28.0.0",
+        "electron-builder": "^26.0.12"
     }
-  }
+}

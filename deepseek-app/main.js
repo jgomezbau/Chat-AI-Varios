@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, session, shell, dialog } = require('electron');
 app.disableHardwareAcceleration();
 const path = require('path');
 
@@ -11,7 +11,8 @@ function createWindow() {
 		webPreferences: {
 			nodeIntegration: false,
 			contextIsolation: true,
-			devTools: true
+			devTools: true,
+			permissions: ['media'],
 		},
 		icon: path.join(__dirname, 'icons', 'icon.png')
 	});
@@ -39,6 +40,11 @@ function createWindow() {
 
 	mainWindow.loadURL('https://chat.deepseek.com/');
 	mainWindow.setMenu(null);
+
+	session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+		const allowedPermissions = ['media'];
+		callback(allowedPermissions.includes(permission));
+	});
 
 	const contextMenuTemplate = [
 		{ label: 'Cortar', role: 'cut', enabled: false },

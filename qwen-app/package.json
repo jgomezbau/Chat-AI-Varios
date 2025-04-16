@@ -1,30 +1,82 @@
 {
-    "name": "qwen-app",
-    "version": "1.0.0",
-    "description": "Aplicación de escritorio para Qwen",
-    "author": "Juan Bau <jgomezbau@gmail.com>",
-    "main": "main.js",
-    "scripts": {
-      "start": "electron .",
-      "build": "electron-builder"
+  "name": "qwen-app",
+  "version": "1.0.0",
+  "description": "Aplicación de escritorio para Qwen",
+  "author": "Juan Bau <jgomezbau@gmail.com>",
+  "main": "main.js",
+  "homepage": "https://github.com/jgomezbau/Chat-AI-Varios/qwen-app",
+  "scripts": {
+    "start": "electron . --disable-audio --disable-webaudio --disable-speech-api --mute-audio",
+    "dev": "electron . --enable-logging --disable-audio --disable-webaudio --disable-speech-api --disable-web-security --ignore-certificate-errors --disable-http-cache --disable-features=AudioServiceOutOfProcess",
+    "debug": "electron --inspect=5858 . --enable-logging --disable-audio --disable-webaudio",
+    "build": "electron-builder",
+    "build:linux": "electron-builder --linux",
+    "build:appimage": "electron-builder --linux AppImage",
+    "build:deb": "electron-builder --linux deb",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "qwen-app",
+    "productName": "Qwen App",
+    "directories": {
+      "output": "dist"
     },
-    "build": {
-      "appId": "qwen-app",
-      "productName": "Qwen App",
-      "directories": {
-        "output": "dist"
-      },
-      "files": [
-        "**/*",
-        "!node_modules/electron/**/*"
+    "files": [
+      "**/*",
+      "!node_modules/electron/**/*",
+      "!**/*.ts",
+      "!*.code-workspace",
+      "LICENSE",
+      "!package-lock.json",
+      "build/**/*",
+      "dist/**/*",
+      "node_modules/**/*",
+      "src/**/*",
+      "main.js",
+      "icons/**/*"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.gz"
       ],
-      "linux": {
-        "target": ["AppImage", "tar.gz"],
-        "icon": "icons/icon.png"
-      }
+      "category": "Utility",
+      "synopsis": "Aplicación de escritorio para Qwen",
+      "description": "Aplicación de escritorio para utilizar Qwen de forma nativa",
+      "desktop": {
+        "Name": "Qwen App",
+        "Comment": "Aplicación de escritorio para Qwen",
+        "Categories": "Utility;Network;Chat"
+      },
+      "artifactName": "${productName}_${version}.${ext}",
+      "icon": "icons/icon.png",
+      "executableName": "qwen-app"
     },
-    "devDependencies": {
-      "electron": "^28.0.0",
-      "electron-builder": "^23.0.0"
+    "extraResources": [
+      {
+        "from": "src",
+        "to": "src",
+        "filter": ["**/*"]
+      }
+    ],
+    "appImage": {
+      "license": "LICENSE"
+    },
+    "deb": {
+      "depends": [
+        "libnotify4",
+        "libxtst6",
+        "libnss3"
+      ]
     }
-  }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "electron-clipboard-extended": "^1.1.1",
+    "electron-store": "^8.2.0"
+  },
+  "license": "MIT"
+}

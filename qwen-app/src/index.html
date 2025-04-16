@@ -2,9 +2,601 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; frame-src https://chat.qwen.ai/ https://*.alicdn.com https://*.aliyun.com; img-src 'self' https://* data:; style-src 'self' 'unsafe-inline'; connect-src https://* http://*;">
   <title>Qwen App</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: #343541;
+      color: #ececf1;
+    }
+
+    #app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    #loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      width: 100%;
+      position: absolute;
+      background-color: #343541;
+      z-index: 1000;
+      transition: opacity 0.3s ease;
+    }
+
+    #qwen-frame {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background-color: #fff;
+    }
+
+    .hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      border-top-color: #10a37f;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    #loading-text {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    #loading-subtext {
+      font-size: 14px;
+      color: #a0a0a0;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    #error-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    #error-message {
+      color: #ff6b6b;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    #retry-button {
+      padding: 10px 20px;
+      background-color: #10a37f;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.2s;
+    }
+
+    #retry-button:hover {
+      background-color: #0d8a6c;
+    }
+
+    #toolbar {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      background-color: #2b2c37;
+      border-bottom: 1px solid #3a3b47;
+    }
+
+    #toolbar button {
+      background: transparent;
+      border: none;
+      color: #ececf1;
+      margin-right: 10px;
+      cursor: pointer;
+      padding: 5px 10px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    #toolbar button:hover {
+      background-color: #3a3b47;
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-left: 10px;
+      background-color: #ccc;
+    }
+    
+    .status-indicator.connected {
+      background-color: #4CAF50;
+    }
+    
+    .status-indicator.loading {
+      background-color: #FFC107;
+      animation: pulse 1.5s infinite;
+    }
+    
+    .status-indicator.error {
+      background-color: #F44336;
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .notification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 18px;
+      border-radius: 4px;
+      background-color: #10a37f;
+      color: white;
+      z-index: 10000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+      max-width: 300px;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes fadeOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(20px); }
+    }
+
+    /* Modo directo de visualización sin iframe */
+    #direct-container {
+      display: none;
+      width: 100%;
+      height: calc(100% - 45px);
+      flex-direction: column;
+    }
+
+    .retry-info {
+      padding: 10px;
+      background-color: #333;
+      color: #eee;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .progress-bar {
+      height: 4px;
+      width: 100%;
+      background-color: #ccc;
+      position: relative;
+      margin-top: 5px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background-color: #10a37f;
+      width: 0%;
+      transition: width 0.3s;
+    }
+  </style>
 </head>
 <body>
-  <p>Cargando Qwen App...</p>
+  <div id="app-container">
+    <div id="toolbar">
+      <button id="refresh-button" title="Recargar">🔄 Recargar</button>
+      <button id="open-external-button" title="Abrir en navegador">🌐 Abrir en navegador</button>
+      <button id="toggle-mode-button" title="Cambiar modo">⚙️ Modo alternativo</button>
+      <div class="status-text" style="margin-left: auto; margin-right: 10px;">Estado: <span id="status-text">Cargando</span></div>
+      <div class="status-indicator loading" id="status-indicator"></div>
+    </div>
+    
+    <div id="loading-container">
+      <div class="spinner"></div>
+      <div id="loading-text">Cargando Qwen...</div>
+      <div id="loading-subtext">Esto puede tardar unos momentos. Estamos optimizando la experiencia para mayor estabilidad.</div>
+      
+      <div id="error-container">
+        <div id="error-message">
+          Hubo un problema al cargar Qwen. Por favor, inténtalo de nuevo.
+        </div>
+        <button id="retry-button">Reintentar</button>
+      </div>
+      
+      <div class="progress-bar">
+        <div class="progress-bar-fill" id="loading-progress"></div>
+      </div>
+    </div>
+    
+    <!-- Iframe para cargar Qwen -->
+    <iframe 
+      id="qwen-frame" 
+      src="about:blank" 
+      sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+      allow="clipboard-read; clipboard-write"
+      importance="high">
+    </iframe>
+    
+    <!-- Contenedor alternativo para cargar directamente -->
+    <div id="direct-container">
+      <div class="retry-info">
+        Modo alternativo activo. Si experimenta problemas, use el botón "Recargar".
+      </div>
+      <webview 
+        id="qwen-webview" 
+        src="about:blank" 
+        allowpopups
+        webpreferences="allowRunningInsecureContent=yes, javascript=yes"
+        style="width:100%; height:100%;">
+      </webview>
+    </div>
+  </div>
+  
+  <script>
+    // Referencias a elementos DOM
+    const loadingContainer = document.getElementById('loading-container');
+    const qwenFrame = document.getElementById('qwen-frame');
+    const errorContainer = document.getElementById('error-container');
+    const retryButton = document.getElementById('retry-button');
+    const refreshButton = document.getElementById('refresh-button');
+    const openExternalButton = document.getElementById('open-external-button');
+    const toggleModeButton = document.getElementById('toggle-mode-button');
+    const loadingText = document.getElementById('loading-text');
+    const statusIndicator = document.getElementById('status-indicator');
+    const statusText = document.getElementById('status-text');
+    const directContainer = document.getElementById('direct-container');
+    const qwenWebview = document.getElementById('qwen-webview');
+    const loadingProgress = document.getElementById('loading-progress');
+    
+    // Configuración
+    const MAX_LOADING_TIME = 20000; // Reducido a 20 segundos
+    const QWEN_URL = 'https://chat.qwen.ai/';
+    let loadingTimeout;
+    let loadingFailed = false;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 3;
+    let useIframeMode = true;
+    let loadingProgressInterval;
+
+    // Función para actualizar barra de progreso
+    function startLoadingProgress() {
+      let progress = 0;
+      clearInterval(loadingProgressInterval);
+      loadingProgress.style.width = '0%';
+      
+      loadingProgressInterval = setInterval(() => {
+        progress += 1;
+        if (progress > 99) {
+          clearInterval(loadingProgressInterval);
+          return;
+        }
+        loadingProgress.style.width = progress + '%';
+      }, MAX_LOADING_TIME / 100);
+    }
+    
+    // Función para actualizar el indicador de estado
+    function updateStatus(status) {
+      statusIndicator.className = 'status-indicator ' + status;
+      switch (status) {
+        case 'connected':
+          statusText.textContent = 'Conectado';
+          clearInterval(loadingProgressInterval);
+          loadingProgress.style.width = '100%';
+          break;
+        case 'loading':
+          statusText.textContent = 'Cargando';
+          startLoadingProgress();
+          break;
+        case 'error':
+          statusText.textContent = 'Error';
+          clearInterval(loadingProgressInterval);
+          break;
+      }
+    }
+    
+    // Función para mostrar notificaciones
+    function showNotification(message) {
+      const notification = document.createElement('div');
+      notification.className = 'notification';
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      
+      console.log('[Notification]', message);
+      
+      setTimeout(() => {
+        notification.remove();
+      }, 3000);
+    }
+    
+    // Función para cambiar entre modos de visualización
+    function toggleMode() {
+      useIframeMode = !useIframeMode;
+      
+      if (useIframeMode) {
+        directContainer.style.display = 'none';
+        qwenFrame.style.display = 'block';
+        showNotification('Modo iframe activado');
+      } else {
+        directContainer.style.display = 'flex';
+        qwenFrame.style.display = 'none';
+        showNotification('Modo alternativo activado');
+        
+        // Si el webview no ha sido cargado aún, cargarlo
+        if (qwenWebview.src === 'about:blank') {
+          const timestamp = new Date().getTime();
+          qwenWebview.src = `${QWEN_URL}?t=${timestamp}`;
+        }
+      }
+      
+      // Reiniciar carga en el modo activo
+      loadQwen();
+    }
+    
+    // Función para cargar Qwen
+    function loadQwen() {
+      // Reiniciar estado
+      loadingFailed = false;
+      loadingContainer.classList.remove('hidden');
+      errorContainer.style.display = 'none';
+      loadingText.textContent = 'Cargando Qwen...';
+      updateStatus('loading');
+      
+      // Establecer timeout para detectar fallos de carga
+      clearTimeout(loadingTimeout);
+      loadingTimeout = setTimeout(() => {
+        if (!loadingFailed) {
+          handleLoadTimeout();
+        }
+      }, MAX_LOADING_TIME);
+      
+      // Cargar Qwen según el modo activo
+      try {
+        const timestamp = new Date().getTime();
+        
+        if (useIframeMode) {
+          qwenFrame.src = `${QWEN_URL}?t=${timestamp}`;
+          console.log('Cargando en iframe:', qwenFrame.src);
+        } else {
+          qwenWebview.src = `${QWEN_URL}?t=${timestamp}`;
+          console.log('Cargando en webview:', qwenWebview.src);
+        }
+      } catch (error) {
+        handleLoadError(error);
+      }
+    }
+
+    // Función para manejar timeout de carga
+    function handleLoadTimeout() {
+      if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts++;
+        showNotification(`Intento de reconexión ${reconnectAttempts} de ${MAX_RECONNECT_ATTEMPTS}...`);
+        
+        if (useIframeMode) {
+          qwenFrame.src = 'about:blank';
+        } else {
+          qwenWebview.src = 'about:blank';
+        }
+        
+        setTimeout(() => {
+          loadQwen();
+        }, 1000);
+      } else {
+        loadingFailed = true;
+        errorContainer.style.display = 'flex';
+        loadingText.textContent = 'Error de carga';
+        updateStatus('error');
+        
+        // Sugerir cambio de modo
+        showNotification('Pruebe a cambiar al modo alternativo');
+      }
+    }
+    
+    // Manejar errores de carga
+    function handleLoadError(error) {
+      console.error('Error al cargar Qwen:', error);
+      loadingFailed = true;
+      errorContainer.style.display = 'flex';
+      loadingText.textContent = 'Error de carga';
+      updateStatus('error');
+      
+      // Notificar al proceso principal
+      if (window.qwenApp) {
+        window.qwenApp.reportError(`Error al cargar Qwen: ${error.message || 'Error desconocido'}`);
+      }
+    }
+    
+    // Verificar si la página ha cargado analizando su contenido
+    function checkIfLoaded(contentWindow) {
+      try {
+        // Intenta detectar elementos clave de Qwen
+        if (contentWindow) {
+          // Verificaciones simples que no deberían fallar debido a seguridad entre orígenes
+          const url = contentWindow.location.href;
+          
+          if (url.includes('chat.qwen.ai')) {
+            // Intentar detectar elementos característicos de la página cargada
+            setTimeout(() => {
+              loadingContainer.classList.add('hidden');
+              updateStatus('connected');
+              showNotification('Qwen cargado correctamente');
+            }, 1500);
+            
+            return true;
+          }
+        }
+      } catch (e) {
+        // Errores de seguridad entre orígenes son esperados
+        // Intentar una aproximación alternativa después de un tiempo
+        setTimeout(() => {
+          loadingContainer.classList.add('hidden');
+          updateStatus('connected');
+        }, 3000);
+      }
+      
+      return false;
+    }
+    
+    // Evento: El iframe ha cargado completamente
+    qwenFrame.addEventListener('load', () => {
+      if (qwenFrame.src !== 'about:blank') {
+        console.log('Iframe cargado:', qwenFrame.src);
+        
+        // Verificar si el iframe ha cargado correctamente
+        try {
+          // Si podemos detectar la carga correcta
+          clearTimeout(loadingTimeout);
+          reconnectAttempts = 0;
+          
+          // Intentar verificar contenido
+          if (checkIfLoaded(qwenFrame.contentWindow)) {
+            return;
+          }
+          
+          // Si no podemos verificar pero la URL es correcta, asumir que está bien
+          if (qwenFrame.src.includes('chat.qwen.ai')) {
+            setTimeout(() => {
+              loadingContainer.classList.add('hidden');
+              updateStatus('connected');
+            }, 2000);
+          }
+        } catch (e) {
+          console.warn('Error al verificar carga del iframe:', e);
+          
+          // Asumir que cargó correctamente después de un tiempo
+          setTimeout(() => {
+            if (!loadingFailed) {
+              loadingContainer.classList.add('hidden');
+              updateStatus('connected');
+            }
+          }, 3000);
+        }
+      }
+    });
+    
+    // Evento: El webview ha cargado
+    if (qwenWebview) {
+      qwenWebview.addEventListener('dom-ready', () => {
+        console.log('Webview DOM listo');
+        
+        if (qwenWebview.src !== 'about:blank') {
+          clearTimeout(loadingTimeout);
+          reconnectAttempts = 0;
+          
+          setTimeout(() => {
+            loadingContainer.classList.add('hidden');
+            updateStatus('connected');
+          }, 1500);
+        }
+      });
+      
+      qwenWebview.addEventListener('did-finish-load', () => {
+        console.log('Webview carga completa');
+        loadingContainer.classList.add('hidden');
+        updateStatus('connected');
+      });
+    }
+    
+    // Evento: Error en el iframe/webview
+    qwenFrame.addEventListener('error', (event) => {
+      console.error('Error en iframe:', event);
+      handleLoadError(event);
+    });
+    
+    if (qwenWebview) {
+      qwenWebview.addEventListener('did-fail-load', (event) => {
+        console.error('Error en webview:', event);
+        handleLoadError(new Error('Webview falló al cargar'));
+      });
+    }
+    
+    // Eventos de botones de la interfaz
+    retryButton.addEventListener('click', () => {
+      reconnectAttempts = 0;
+      loadQwen();
+    });
+    
+    refreshButton.addEventListener('click', () => {
+      reconnectAttempts = 0;
+      loadQwen();
+    });
+    
+    toggleModeButton.addEventListener('click', toggleMode);
+    
+    openExternalButton.addEventListener('click', () => {
+      if (window.qwenApp) {
+        window.qwenApp.openExternal(QWEN_URL);
+        showNotification('Abriendo en navegador externo');
+      } else {
+        window.open(QWEN_URL, '_blank');
+      }
+    });
+    
+    // Iniciar la carga cuando el documento esté listo
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('DOM cargado, iniciando carga de Qwen');
+      setTimeout(loadQwen, 500);
+    });
+    
+    // Manejar errores globales
+    window.addEventListener('error', (event) => {
+      console.error('Error en la página:', event.message);
+      event.preventDefault();
+      return true;
+    });
+
+    // Intervalo para verificar estado periódicamente
+    setInterval(() => {
+      if (!loadingFailed && loadingContainer.style.display !== 'none' && !loadingContainer.classList.contains('hidden')) {
+        const now = new Date().getTime();
+        const loadedFor = now - document.timeline.currentTime;
+        
+        if (loadedFor > 10000) {
+          console.log('Verificando estado del iframe/webview después de 10s...');
+          
+          // Si hay indicios de que está cargado pero no se detectó
+          if (useIframeMode && qwenFrame.src.includes('chat.qwen.ai')) {
+            loadingContainer.classList.add('hidden');
+            updateStatus('connected');
+          } else if (!useIframeMode && qwenWebview && qwenWebview.src.includes('chat.qwen.ai')) {
+            loadingContainer.classList.add('hidden');
+            updateStatus('connected');
+          }
+        }
+      }
+    }, 5000);
+  </script>
 </body>
 </html>
