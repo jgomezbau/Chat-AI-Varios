@@ -1,22 +1,27 @@
-const { app, BrowserWindow, Menu, session, shell, dialog, clipboard } = require('electron');
+const { app, BrowserWindow, Menu, session, shell, dialog, clipboard, Tray, nativeImage } = require('electron');
 const path = require('path');
 const { setupIPC } = require('./src/preload/ipc');
 
 // Desactivar aceleración por hardware (según configuración original)
 app.disableHardwareAcceleration();
 
-// Variable para mantener la referencia a la ventana principal
+// Variable para mantener la referencia a la ventana principal y al tray
 let mainWindow;
+let tray = null;
 
-// Dominios permitidos para navegación directa
-const allowedDomains = ['openai.com', 'chat.openai.com'];
+// Dominios permitidos para el flujo de inicio de sesión
 const allowedLoginDomains = [
-  /openai\.com$/,
-  'chatgpt.com',
+  /openai\.com$/, // Incluye chat.openai.com, auth0.openai.com, etc.
+  'chatgpt.com', // Nuevo dominio de ChatGPT
   'accounts.google.com',
-  'login.live.com',
-  'appleid.apple.com'
+  'login.live.com', // Microsoft
+  'appleid.apple.com' // Apple ID
 ];
+
+// URL base de la aplicación
+const appBaseUrl = 'https://chat.openai.com/';
+// Common User Agent string (e.g., Chrome on Linux)
+const userAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36';
 
 // Crear ventana principal
 function createWindow() {
@@ -53,16 +58,27 @@ function createWindow() {
 
   // Configurar navegación
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const hostname = new URL(url).hostname;
-    if (!allowedLoginDomains.some(domain => domain instanceof RegExp ? domain.test(hostname) : hostname.includes(domain))) {
-      event.preventDefault();
-      shell.openExternal(url);
+    const targetUrl = new URL(url);
+    const hostname = targetUrl.hostname;
+
+    // 1. Permitir navegación dentro de la URL base de la aplicación (incluye callbacks)
+    if (url.startsWith(appBaseUrl)) {
+      return; // Permitir la navegación
     }
+
+    // 2. Permitir navegación a dominios de inicio de sesión conocidos
+    if (allowedLoginDomains.some(domain => domain instanceof RegExp ? domain.test(hostname) : hostname.includes(domain))) {
+      return; // Permitir la navegación
+    }
+
+    // 3. Para cualquier otra URL, prevenir y abrir externamente
+    event.preventDefault();
+    shell.openExternal(url);
   });
 
-  // Cargar URL de ChatGPT
-  mainWindow.loadURL('https://chat.openai.com');
-  
+  // Cargar URL de ChatGPT with custom User Agent
+  mainWindow.loadURL(appBaseUrl, { userAgent: userAgent });
+
   // Eliminar menú visible en la ventana
   mainWindow.setMenuBarVisibility(false);
   mainWindow.autoHideMenuBar = true;
@@ -125,9 +141,17 @@ function createWindow() {
     }
   });
 
-  // Manejar cierre de ventana
+  // Manejar cierre de ventana para ocultar en lugar de salir (excepto macOS)
+  mainWindow.on('close', (event) => {
+    if (process.platform !== 'darwin') {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
+    // No destruir el tray aquí, se hace en before-quit
   });
 }
 
@@ -137,7 +161,42 @@ setupIPC();
 // Eventos de la aplicación
 app.on('ready', () => {
   createWindow();
-  
+
+  // Crear icono de Tray
+  const iconPath = path.join(__dirname, 'icons', 'icon.png');
+  const icon = nativeImage.createFromPath(iconPath);
+  tray = new Tray(icon);
+
+  // Crear menú contextual para el Tray
+  const trayContextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Mostrar/Ocultar ChatGPT',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Salir',
+      click: () => {
+        app.isQuiting = true; // Marcar que estamos saliendo intencionalmente
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setToolTip('ChatGPT App');
+  tray.setContextMenu(trayContextMenu);
+
+  // Mostrar/ocultar ventana al hacer clic en el icono del tray
+  tray.on('click', () => {
+    if (mainWindow) {
+      mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+    }
+  });
+
   // Configurar atajos de teclado globales sin mostrar la barra de menú
   const menu = Menu.buildFromTemplate([
     {
@@ -169,13 +228,29 @@ app.on('ready', () => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+  // En macOS, es común que la aplicación permanezca activa sin ventanas.
+  // En otros sistemas, si no estamos saliendo intencionalmente, no salimos.
+  if (process.platform !== 'darwin' && !app.isQuiting) {
+     // No hacer nada, la app sigue en el tray
+  } else if (process.platform === 'darwin') {
+     // Comportamiento estándar de macOS
+  } else {
+    app.quit(); // Salir si se marcó isQuiting
   }
 });
 
 app.on('activate', () => {
+  // En macOS, re-crear la ventana si se hace clic en el icono del dock y no hay ventanas abiertas.
   if (mainWindow === null) {
     createWindow();
+  } else {
+    mainWindow.show(); // Si la ventana existe pero está oculta, mostrarla
+  }
+});
+
+// Limpiar el icono del tray antes de salir
+app.on('before-quit', () => {
+  if (tray) {
+    tray.destroy();
   }
 });
