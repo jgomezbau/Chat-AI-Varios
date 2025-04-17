@@ -1,176 +1,156 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog, shell, session } = require('electron');
-const path = require('path');
-const fs = require('fs');
-
-// Desactivar aceleración por hardware completamente
+const { app, BrowserWindow, Menu, session, shell, dialog, Tray } = require('electron'); // Added Tray
 app.disableHardwareAcceleration();
-app.commandLine.appendSwitch('disable-gpu');
+const path = require('path');
 
-// Desactivar completamente todas las características de audio
-app.commandLine.appendSwitch('disable-audio');
-app.commandLine.appendSwitch('disable-features', 'AudioServiceOutOfProcess,AudioOutputDevices');
-app.commandLine.appendSwitch('disable-speech-api');
-app.commandLine.appendSwitch('disable-webaudio');
-app.commandLine.appendSwitch('mute-audio');
+let mainWindow;
+let tray = null; // Added tray variable
+let isQuitting = false; // Added quitting flag
 
-// Opciones adicionales para mejorar estabilidad
-app.commandLine.appendSwitch('disable-accelerated-video-decode');
-app.commandLine.appendSwitch('disable-accelerated-2d-canvas');
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
-app.commandLine.appendSwitch('disable-renderer-accessibility');
-app.commandLine.appendSwitch('disable-hang-monitor');
-app.commandLine.appendSwitch('disable-dev-shm-usage');
-app.commandLine.appendSwitch('no-sandbox'); // Cuidado: solo para desarrollo
-app.commandLine.appendSwitch('disable-http2');
+// --- SINGLE INSTANCE LOCK ---
+const gotTheLock = app.requestSingleInstanceLock();
 
-// Variable para la ventana principal
-let mainWindow = null;
+if (!gotTheLock) {
+	app.quit();
+} else {
+	app.on('second-instance', (event, commandLine, workingDirectory) => {
+		// Someone tried to run a second instance, we should focus our window.
+		if (mainWindow) {
+			if (mainWindow.isMinimized()) mainWindow.restore();
+			mainWindow.show();
+			mainWindow.focus();
+		}
+	});
 
-// Función para crear ventana principal
-function createWindow() {
-  // Crear la ventana del navegador
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    show: false, // No mostrar hasta que esté lista
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'src', 'preload.js'),
-      webSecurity: false, // Desactivar seguridad web para evitar problemas de CSP
-      allowRunningInsecureContent: true, 
-      webviewTag: true, // Permitir el uso de webview
-      sandbox: false,
-      backgroundThrottling: false
-    },
-    icon: path.join(__dirname, 'icons', 'icon.png'),
-    backgroundColor: '#343541'
-  });
+	function createWindow() {
+		mainWindow = new BrowserWindow({
+			width: 1200,
+			height: 800,
+			webPreferences: {
+				nodeIntegration: false,
+				contextIsolation: true,
+				devTools: true,
+				permissions: ['media'],
+			},
+			icon: path.join(__dirname, 'icons', 'icon.png')
+		});
 
-  // Configurar sesión para permitir todos los orígenes
-  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    callback({ requestHeaders: { ...details.requestHeaders, Origin: '*' } });
-  });
+		const allowedDomains = ['chat.qwen.ai'];
+		const allowedLoginDomains = [/chat.qwen\.ai$/, 'accounts.google.com', 'login.live.com', 'appleid.apple.com'];
 
-  // Configurar respuestas para permitir CORS
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Access-Control-Allow-Origin': ['*'],
-        'Access-Control-Allow-Methods': ['*'],
-        'Access-Control-Allow-Headers': ['*']
-      }
-    });
-  });
+		mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+			const hostname = new URL(url).hostname;
+			if (allowedLoginDomains.some(domain => domain instanceof RegExp ? domain.test(hostname) : hostname.includes(domain))) {
+				mainWindow.loadURL(url);
+			} else {
+				shell.openExternal(url);
+			}
+			return { action: 'deny' };
+		});
 
-  // Cargar nuestro HTML local
-  mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+		mainWindow.webContents.on('will-navigate', (event, url) => {
+			const hostname = new URL(url).hostname;
+			if (!allowedLoginDomains.some(domain => domain instanceof RegExp ? domain.test(hostname) : hostname.includes(domain))) {
+				event.preventDefault();
+				shell.openExternal(url);
+			}
+		});
 
-  // Ocultar menú
-  mainWindow.setMenu(null);
+		mainWindow.loadURL('https://chat.qwen.ai');
+		mainWindow.setMenu(null);
 
-  // Mostrar la ventana cuando esté lista para evitar destellos blancos
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-    mainWindow.focus();
-  });
+		session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+			const allowedPermissions = ['media'];
+			callback(allowedPermissions.includes(permission));
+		});
 
-  // Crear menú contextual
-  mainWindow.webContents.on('context-menu', (_, params) => {
-    const menu = Menu.buildFromTemplate([
-      { label: 'Copiar', role: 'copy', enabled: params.selectionText && params.selectionText.length > 0 },
-      { label: 'Pegar', role: 'paste', enabled: params.isEditable },
-      { type: 'separator' },
-      { label: 'Recargar', click: () => mainWindow.reload() },
-      { label: 'Forzar recarga', click: () => mainWindow.webContents.reloadIgnoringCache() },
-      { type: 'separator' },
-      { label: 'Inspeccionar elemento', click: () => mainWindow.webContents.inspectElement(params.x, params.y) }
-    ]);
-    menu.popup();
-  });
+		const contextMenuTemplate = [
+			{ label: 'Cortar', role: 'cut', enabled: false },
+			{ label: 'Copiar', role: 'copy', enabled: false },
+			{ label: 'Pegar', role: 'paste' },
+			{ label: 'Seleccionar todo', role: 'selectAll' },
+			{ type: 'separator' },
+			{ label: 'Recargar', click: () => { mainWindow.reload(); } },
+			{ label: 'Imprimir', click: () => { mainWindow.webContents.print(); } },
+			{ label: 'Inspeccionar', click: (_, params) => { mainWindow.webContents.inspectElement(params.x, params.y); } }
+		];
 
-  // Manejar enlaces externos
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.includes('file://') && !url.includes('chat.qwen.ai')) {
-      event.preventDefault();
-      shell.openExternal(url);
-    }
-  });
+		mainWindow.webContents.on('context-menu', (event, params) => {
+			const { isEditable, selectionText } = params;
+			contextMenuTemplate[0].enabled = isEditable;
+			contextMenuTemplate[1].enabled = selectionText.trim() !== '';
+			contextMenuTemplate[2].enabled = isEditable;
+			const menu = Menu.buildFromTemplate(contextMenuTemplate);
+			menu.popup();
+		});
 
-  // Manejar errores
-  mainWindow.webContents.on('render-process-gone', (_, details) => {
-    console.error(`Proceso de renderizado terminado: ${details.reason}`);
-    if (details.reason !== 'clean-exit') {
-      dialog.showErrorBox('Error', 
-        'El proceso de renderizado ha fallado. La aplicación se reiniciará.');
-      
-      if (mainWindow) {
-        mainWindow.destroy();
-        createWindow();
-      }
-    }
-  });
+		// Prevent closing, hide instead
+		mainWindow.on('close', (event) => {
+			if (!isQuitting) {
+				event.preventDefault();
+				mainWindow.hide();
+			}
+		});
 
-  // Manejar cuelgues
-  mainWindow.webContents.on('unresponsive', () => {
-    dialog.showMessageBox({
-      type: 'warning',
-      buttons: ['Esperar', 'Forzar reinicio'],
-      title: 'Aplicación no responde',
-      message: 'La aplicación no responde. ¿Desea esperar o forzar el reinicio?',
-      defaultId: 0
-    }).then(result => {
-      if (result.response === 1 && mainWindow) {
-        mainWindow.destroy();
-        createWindow();
-      }
-    });
-  });
+		mainWindow.on('closed', () => {
+			mainWindow = null;
+		});
+	}
 
-  // Limpiar referencia cuando se cierre la ventana
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+	app.on('ready', () => {
+		createWindow();
+
+		// Create Tray icon
+		const iconPath = path.join(__dirname, 'icons', 'icon.png'); // Ensure you have an icon here
+		tray = new Tray(iconPath);
+		tray.setToolTip('Qwen App');
+
+		const contextMenu = Menu.buildFromTemplate([
+			{
+				label: 'Show/Hide Qwen',
+				click: () => {
+					mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+				}
+			},
+			{
+				label: 'Quit',
+				click: () => {
+					isQuitting = true;
+					app.quit();
+				}
+			}
+		]);
+
+		tray.setContextMenu(contextMenu);
+
+		// Show window when tray icon is clicked (optional, adjust as needed)
+		tray.on('click', () => {
+			mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+		});
+	});
+
+	// Keep app running in tray even if window is closed
+	app.on('window-all-closed', () => {
+		// On macOS it is common for applications and their menu bar
+		// to stay active until the user quits explicitly with Cmd + Q
+		// On other platforms, we might want to keep it in tray unless explicitly quit
+		// if (process.platform !== 'darwin') {
+		//   app.quit(); // Original behavior - remove or comment out for tray persistence
+		// }
+	});
+
+	app.on('activate', () => {
+		// On macOS it's common to re-create a window in the app when the
+		// dock icon is clicked and there are no other windows open.
+		// Show existing window or create if null
+		if (mainWindow === null) {
+			createWindow();
+		} else {
+			mainWindow.show();
+		}
+	});
+
+	// Ensure app quits properly before exit
+	app.on('before-quit', () => {
+		isQuitting = true;
+	});
 }
-
-// Escuchar IPC para recargar la ventana
-ipcMain.on('reload-app', () => {
-  if (mainWindow) mainWindow.reload();
-});
-
-// Escuchar IPC para reportar errores
-ipcMain.on('report-error', (_, errorMessage) => {
-  console.error(`Error reportado desde el renderer: ${errorMessage}`);
-  dialog.showErrorBox('Error', errorMessage);
-});
-
-// Escuchar IPC para abrir enlaces externos
-ipcMain.handle('open-external', (_, url) => {
-  return shell.openExternal(url);
-});
-
-// Iniciar la aplicación
-app.whenReady().then(() => {
-  createWindow();
-
-  // Registrar protocolo personalizado
-  if (!app.isDefaultProtocolClient('qwen')) {
-    app.setAsDefaultProtocolClient('qwen');
-  }
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-});
-
-// Salir cuando se cierren todas las ventanas (excepto en macOS)
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
-
-// Manejo de errores no capturados
-process.on('uncaughtException', (error) => {
-  console.error('Error no capturado:', error);
-  // Registrar error pero no cerrar la aplicación
-});

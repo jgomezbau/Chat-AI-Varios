@@ -1,8 +1,77 @@
-const { app, BrowserWindow, Menu, session, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, session, shell, dialog, Tray, nativeImage } = require('electron');
 app.disableHardwareAcceleration();
 const path = require('path');
 
 let mainWindow;
+let tray = null; // Tray global
+let isQuitting = false; // <-- Añadido
+
+// --- SINGLE INSTANCE LOCK ---
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // Restaurar y enfocar la ventana principal si existe
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+    // Asegurar que el tray esté activo
+    if (!tray && app.isReady()) {
+      createTray();
+    }
+  });
+
+  app.on('ready', () => {
+    createWindow();
+    createTray();
+  });
+}
+
+function createTray() {
+  if (tray) return;
+  const iconPath = path.join(__dirname, 'icons', 'icon.png');
+  const icon = nativeImage.createFromPath(iconPath);
+  tray = new Tray(icon);
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Mostrar/Ocultar DeepSeek',
+      click: () => {
+        if (mainWindow) {
+          if (mainWindow.isVisible()) {
+            mainWindow.hide();
+          } else {
+            mainWindow.show();
+            mainWindow.focus();
+          }
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Salir',
+      click: () => {
+        isQuitting = true; // <-- Añadido
+        app.quit();
+      }
+    }
+  ]);
+  tray.setToolTip('DeepSeek');
+  tray.setContextMenu(contextMenu);
+  tray.on('click', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    }
+  });
+}
 
 function createWindow() {
 	mainWindow = new BrowserWindow({
@@ -66,11 +135,17 @@ function createWindow() {
 		menu.popup();
 	});
 
+	mainWindow.on('close', (event) => {
+		if (!isQuitting) {
+			event.preventDefault();
+			mainWindow.hide();
+		}
+	});
+
 	mainWindow.on('closed', () => {
 		mainWindow = null;
 	});
 }
 
-app.on('ready', createWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (mainWindow === null) createWindow(); });

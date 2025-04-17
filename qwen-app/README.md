@@ -1,15 +1,15 @@
 # Qwen Desktop App
 
-**Versión 1.0.0**
+**Versión 1.1.0**
 
-Esta es una aplicación de escritorio desarrollada utilizando **Electron**, que permite a los usuarios interactuar con **Qwen** de manera independiente del navegador. El objetivo de este proyecto es proporcionar una experiencia de usuario más fluida y accesible para aquellos que prefieren tener Qwen en su escritorio sin depender de un navegador web.
+Esta es una aplicación de escritorio desarrollada utilizando **Electron**, que permite a los usuarios interactuar con **Qwen AI** de manera independiente del navegador. El objetivo de este proyecto es proporcionar una experiencia de usuario más fluida y accesible para aquellos que prefieren tener ChatGPT en su escritorio sin depender de un navegador web.
 
 ## Características
 
-- **Interfaz Independiente**: Ejecuta Qwen directamente en el escritorio sin necesidad de un navegador web.
+- **Interfaz Independiente**: Ejecuta Qwen AI directamente en el escritorio sin necesidad de un navegador web.
 - **Permisos para cámara y micrófono**: La aplicación está configurada para solicitar permisos de acceso a la cámara y micrófono cuando sea necesario.
 - **Menú contextual personalizado**: Se ha habilitado un menú contextual con opciones como cortar, copiar, pegar, recargar, imprimir, y más.
-- **Recarga automática**: La aplicación permite recargar la página de Qwen fácilmente desde el menú contextual.
+- **Recarga automática**: La aplicación permite recargar la página de ChatGPT fácilmente desde el menú contextual.
   
 ## Tecnologías utilizadas
 
@@ -31,13 +31,13 @@ Antes de comenzar, asegúrate de tener lo siguiente instalado:
 1. **Clonar el repositorio**:
 
    ```bash
-   git clone https://github.com/jgomezbau/Qwen-app.git
+   git clone https://github.com/jgomezbau/qwen-app.git
 
 # Uso
 **Menú contextual**: 
 	Al hacer clic derecho en cualquier parte de la ventana, podrás ver las opciones disponibles (Cortar, Copiar, Pegar, Recargar, Imprimir, y más).
 **Recarga de página**: 
-	Puedes recargar la aplicación para forzar la actualización de Qwen desde el menú contextual.
+	Puedes recargar la aplicación para forzar la actualización de Qwen AI desde el menú contextual.
 **Inspección de elementos**: 
 	Se puede abrir DevTools desde el menú contextual para depurar o inspeccionar el contenido.
 
@@ -63,6 +63,6 @@ Antes de comenzar, asegúrate de tener lo siguiente instalado:
 	Este proyecto está licenciado bajo la MIT License.
 
 
-**Este README refleja las características, el uso y las instrucciones de instalación de la aplicación de escritorio para **Qwen**, que se ejecuta dentro de **Electron** con funcionalidades como la recarga, inspección de elementos y un menú contextual personalizado.**
+**Este README refleja las características, el uso y las instrucciones de instalación de la aplicación de escritorio para **Qwen AI**, que se ejecuta dentro de **Electron** con funcionalidades como la recarga, inspección de elementos y un menú contextual personalizado.**
 
 Si necesitas algún ajuste o quieres agregar más detalles, ¡solo dime!
