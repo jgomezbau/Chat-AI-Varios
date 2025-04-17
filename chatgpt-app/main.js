@@ -2,6 +2,9 @@ const { app, BrowserWindow, Menu, session, shell, dialog, clipboard, Tray, nativ
 const path = require('path');
 const { setupIPC } = require('./src/preload/ipc');
 
+// Unificar el nombre de la app para la carpeta de configuración
+app.setName('ChatGPT'); // Asegúrate de que sea 'ChatGPT' y no 'Electron'
+
 // Desactivar aceleración por hardware (según configuración original)
 app.disableHardwareAcceleration();
 
@@ -14,14 +17,16 @@ const allowedLoginDomains = [
   /openai\.com$/, // Incluye chat.openai.com, auth0.openai.com, etc.
   'chatgpt.com', // Nuevo dominio de ChatGPT
   'accounts.google.com',
+  'login.microsoft.com', // Microsoft
+  'login.microsoftonline.com', // Microsoft
   'login.live.com', // Microsoft
   'appleid.apple.com' // Apple ID
 ];
 
 // URL base de la aplicación
 const appBaseUrl = 'https://chat.openai.com/';
-// Common User Agent string (e.g., Chrome on Linux)
-const userAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36';
+// User Agent string de Firefox en Linux
+const userAgent = 'Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0';
 
 // Crear ventana principal
 function createWindow() {
@@ -42,14 +47,40 @@ function createWindow() {
       webSecurity: true
     },
     icon: path.join(__dirname, 'icons', 'icon.png'),
-    title: 'ChatGPT App'
+    title: 'ChatGPT' // No mencionar Electron
   });
+
+  // Crear ventana secundaria para login OAuth
+  function createLoginWindow(url) {
+    const loginWindow = new BrowserWindow({
+      width: 500,
+      height: 700,
+      parent: mainWindow,
+      modal: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        devTools: true,
+        sandbox: false,
+        webSecurity: true
+      }
+    });
+    loginWindow.loadURL(url);
+    // Opcional: cerrar la ventana de login cuando termine el flujo
+    loginWindow.webContents.on('will-redirect', (event, newUrl) => {
+      if (newUrl.startsWith(appBaseUrl)) {
+        mainWindow.loadURL(newUrl);
+        loginWindow.close();
+      }
+    });
+  }
 
   // Configurar el manejador de apertura de ventanas
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     const hostname = new URL(url).hostname;
     if (allowedLoginDomains.some(domain => domain instanceof RegExp ? domain.test(hostname) : hostname.includes(domain))) {
-      mainWindow.loadURL(url);
+      // Abrir en una nueva ventana de Electron (no reemplazar mainWindow)
+      createLoginWindow(url);
     } else {
       shell.openExternal(url);
     }
@@ -76,7 +107,7 @@ function createWindow() {
     shell.openExternal(url);
   });
 
-  // Cargar URL de ChatGPT with custom User Agent
+  // Cargar URL de ChatGPT con userAgent de Firefox
   mainWindow.loadURL(appBaseUrl, { userAgent: userAgent });
 
   // Eliminar menú visible en la ventana

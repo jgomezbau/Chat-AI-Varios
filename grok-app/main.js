@@ -1,8 +1,10 @@
-const { app, BrowserWindow, Menu, session, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, session, shell, dialog, Tray } = require('electron'); // Added Tray
 app.disableHardwareAcceleration();
 const path = require('path');
 
 let mainWindow;
+let tray = null; // Added tray variable
+let isQuitting = false; // Added quitting flag
 
 function createWindow() {
 	mainWindow = new BrowserWindow({
@@ -66,11 +68,73 @@ function createWindow() {
 		menu.popup();
 	});
 
+	// Prevent closing, hide instead
+	mainWindow.on('close', (event) => {
+		if (!isQuitting) {
+			event.preventDefault();
+			mainWindow.hide();
+		}
+	});
+
 	mainWindow.on('closed', () => {
 		mainWindow = null;
 	});
 }
 
-app.on('ready', createWindow);
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('activate', () => { if (mainWindow === null) createWindow(); });
+app.on('ready', () => {
+	createWindow();
+
+	// Create Tray icon
+	const iconPath = path.join(__dirname, 'icons', 'icon.png'); // Ensure you have an icon here
+	tray = new Tray(iconPath);
+	tray.setToolTip('Grok App');
+
+	const contextMenu = Menu.buildFromTemplate([
+		{
+			label: 'Show/Hide Grok',
+			click: () => {
+				mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+			}
+		},
+		{
+			label: 'Quit',
+			click: () => {
+				isQuitting = true;
+				app.quit();
+			}
+		}
+	]);
+
+	tray.setContextMenu(contextMenu);
+
+	// Show window when tray icon is clicked (optional, adjust as needed)
+	tray.on('click', () => {
+		mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+	});
+});
+
+// Keep app running in tray even if window is closed
+app.on('window-all-closed', () => {
+	// On macOS it is common for applications and their menu bar
+	// to stay active until the user quits explicitly with Cmd + Q
+	// On other platforms, we might want to keep it in tray unless explicitly quit
+	// if (process.platform !== 'darwin') {
+	//   app.quit(); // Original behavior - remove or comment out for tray persistence
+	// }
+});
+
+app.on('activate', () => {
+	// On macOS it's common to re-create a window in the app when the
+	// dock icon is clicked and there are no other windows open.
+	// Show existing window or create if null
+	if (mainWindow === null) {
+		createWindow();
+	} else {
+		mainWindow.show();
+	}
+});
+
+// Ensure app quits properly before exit
+app.on('before-quit', () => {
+	isQuitting = true;
+});

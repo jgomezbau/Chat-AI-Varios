@@ -49,9 +49,11 @@
       "synopsis": "Aplicación de escritorio para Claude",
       "description": "Aplicación de escritorio para utilizar Claude de forma nativa con experiencia de navegador completo",
       "desktop": {
-        "Name": "Claude App",
-        "Comment": "Aplicación de escritorio para Claude",
-        "Categories": "Utility;Network;Chat"
+        "entry": {
+          "Name": "Claude",
+          "Comment": "App de escritorio para Claude.ai",
+          "Categories": "Utility;"
+        }
       },
       "artifactName": "${productName}_${version}.${ext}",
       "icon": "icons/icon.png"
@@ -68,8 +70,8 @@
     }
   },
   "devDependencies": {
-    "electron": "^28.1.0",
-    "electron-builder": "^24.6.4",
+    "electron": "^31.1.0",
+    "electron-builder": "^26.0.12",
     "spectron": "^19.0.0"
   },
   "dependencies": {

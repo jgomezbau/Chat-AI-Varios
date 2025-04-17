@@ -17,7 +17,7 @@
   },
   "build": {
     "appId": "chatgpt-app",
-    "productName": "ChatGPT App",
+    "productName": "ChatGPT",
     "directories": {
       "output": "dist"
     },
@@ -44,7 +44,7 @@
       "synopsis": "Aplicación de escritorio para ChatGPT",
       "description": "Aplicación de escritorio para utilizar ChatGPT de forma nativa",
       "desktop": {
-        "Name": "ChatGPT App",
+        "Name": "ChatGPT",
         "Comment": "Aplicación de escritorio para ChatGPT",
         "Categories": "Utility;Network;Chat"
       },
