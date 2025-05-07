@@ -189,10 +189,11 @@ if (!gotTheLock) {
 
     // Manejar cierre de ventana para ocultar en lugar de salir (excepto macOS)
     mainWindow.on('close', (event) => {
-      if (process.platform !== 'darwin') {
+      if (process.platform !== 'darwin' && !app.isQuiting) {
         event.preventDefault();
         mainWindow.hide();
       }
+      // Si app.isQuiting es true, se permite el cierre normal
     });
 
     mainWindow.on('closed', () => {
@@ -228,6 +229,10 @@ if (!gotTheLock) {
         label: 'Salir',
         click: () => {
           app.isQuiting = true; // Marcar que estamos saliendo intencionalmente
+          if (mainWindow) {
+            mainWindow.close(); // Esto disparará el evento 'close' y permitirá salir
+          }
+          // Si no hay ventana, salir directamente
           app.quit();
         }
       }

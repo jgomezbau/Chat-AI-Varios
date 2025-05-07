@@ -13,10 +13,11 @@
     "build:linux": "electron-builder --linux",
     "build:appimage": "electron-builder --linux AppImage",
     "build:deb": "electron-builder --linux deb",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "linux": "electron-builder --linux AppImage"
   },
   "build": {
-    "appId": "chatgpt-app",
+    "appId": "com.tuempresa.chatgpt",
     "productName": "ChatGPT",
     "directories": {
       "output": "dist"
@@ -64,7 +65,7 @@
   },
   "devDependencies": {
     "electron": "^28.1.0",
-    "electron-builder": "^24.6.4"
+    "electron-builder": "^24.0.0"
   },
   "dependencies": {
     "electron-clipboard-extended": "^1.1.1",
